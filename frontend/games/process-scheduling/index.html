@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>农田作业调度 - 进程调度学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        .game-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .game-area {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .side-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .algorithm-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 2px solid #3498db;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .algorithm-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .algorithm-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .process-queue {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .process-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            min-width: 80px;
+            text-align: center;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .execution-bar {
+            height: 60px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .process-segment {
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            border: 1px solid rgba(255,255,255,0.3);
+            transition: width 0.5s;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .uncle-dialog::before {
+            content: '👴 字节叔';
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        #phaser-canvas {
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- 返回按钮 -->
+    <button class="back-btn btn btn-primary" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-container">
+        <!-- 游戏主区域 -->
+        <div class="game-area">
+            <h1 style="text-align: center; margin-bottom: 20px;">
+                🌾 农田作业调度 - 进程调度学习
+            </h1>
+
+            <!-- Phaser游戏画布 -->
+            <div id="phaser-canvas"></div>
+
+            <!-- 执行时间线 -->
+            <div class="execution-bar" id="executionBar">
+                <!-- 进程执行条将在这里动态生成 -->
+            </div>
+
+            <!-- 控制按钮 -->
+            <div class="control-buttons">
+                <button class="btn btn-primary" onclick="game.startSimulation()">▶ 开始调度</button>
+                <button class="btn btn-warning" onclick="game.resetSimulation()">↻ 重置</button>
+                <button class="btn btn-success" onclick="game.showHint()">💡 获取提示</button>
+            </div>
+
+            <!-- 字节叔对话框 -->
+            <div class="uncle-dialog" id="uncleDialog">
+                欢迎来到农田作业调度！我是字节叔。
+                在这里，你将学习如何调度农田作业，这就像操作系统中的进程调度一样。
+                选择一个调度算法开始学习吧！
+            </div>
+        </div>
+
+        <!-- 侧边面板 -->
+        <div class="side-panel">
+            <!-- 调度算法选择 -->
+            <div class="panel-card">
+                <div class="panel-title">📋 选择调度算法</div>
+                <button class="algorithm-btn active" onclick="game.setAlgorithm('fcfs')">
+                    先来先服务 (FCFS)
+                </button>
+                <button class="algorithm-btn" onclick="game.setAlgorithm('sjf')">
+                    短作业优先 (SJF)
+                </button>
+                <button class="algorithm-btn" onclick="game.setAlgorithm('priority')">
+                    优先级调度
+                </button>
+                <button class="algorithm-btn" onclick="game.setAlgorithm('rr')">
+                    时间片轮转 (RR)
+                </button>
+            </div>
+
+            <!-- 等待队列 -->
+            <div class="panel-card">
+                <div class="panel-title">⏳ 等待队列</div>
+                <div class="process-queue" id="processQueue">
+                    <!-- 进程卡片将在这里动态生成 -->
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="panel-card">
+                <div class="panel-title">📊 统计信息</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">平均等待时间</div>
+                        <div class="stat-value" id="avgWaitTime">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">平均周转时间</div>
+                        <div class="stat-value" id="avgTurnaround">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">CPU利用率</div>
+                        <div class="stat-value" id="cpuUtilization">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">已完成进程</div>
+                        <div class="stat-value" id="completedProcess">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 算法说明 -->
+            <div class="panel-card">
+                <div class="panel-title">📖 算法说明</div>
+                <div class="info-box" id="algorithmInfo">
+                    <strong>FCFS (先来先服务)</strong><br>
+                    按照进程到达的先后顺序进行调度，
+                    就像排队买票一样，先到先得。
+                    优点是实现简单，缺点是可能导致"护航效应"。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phaser 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+    <!-- API 客户端 -->
+    <script src="../../common/api-client.js"></script>
+
+    <script>
+        // 调度算法游戏主类
+        class SchedulingGame {
+            constructor() {
+                this.algorithm = 'fcfs';
+                this.processes = [];
+                this.completedProcesses = [];
+                this.currentTime = 0;
+                this.isRunning = false;
+
+                // 默认进程数据
+                this.defaultProcesses = [
+                    { id: 'P1', name: '耕地1', arriveTime: 0, burstTime: 8, priority: 2, color: 0xe74c3c },
+                    { id: 'P2', name: '播种2', arriveTime: 1, burstTime: 4, priority: 1, color: 0x3498db },
+                    { id: 'P3', name: '施肥3', arriveTime: 2, burstTime: 9, priority: 3, color: 0x2ecc71 },
+                    { id: 'P4', name: '收割4', arriveTime: 3, burstTime: 5, priority: 2, color: 0xf39c12 }
+                ];
+            }
+
+            init() {
+                // 初始化进程
+                this.processes = JSON.parse(JSON.stringify(this.defaultProcesses));
+                this.completedProcesses = [];
+                this.currentTime = 0;
+                this.updateProcessQueue();
+                this.updateAlgorithmInfo();
+            }
+
+            setAlgorithm(algo) {
+                this.algorithm = algo;
+                document.querySelectorAll('.algorithm-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+                this.resetSimulation();
+                this.updateAlgorithmInfo();
+            }
+
+            updateAlgorithmInfo() {
+                const info = {
+                    'fcfs': '<strong>FCFS (先来先服务)</strong><br>按照进程到达的先后顺序进行调度，就像排队买票一样，先到先得。优点是实现简单，缺点是可能导致"护航效应"。',
+                    'sjf': '<strong>SJF (短作业优先)</strong><br>优先执行估计运行时间最短的进程。优点是平均等待时间最短，缺点是可能导致长作业饥饿。',
+                    'priority': '<strong>优先级调度</strong><br>按照进程的优先级进行调度，高优先级的进程先执行。注意防止低优先级进程"饥饿"。',
+                    'rr': '<strong>时间片轮转 (RR)</strong><br>每个进程执行一个时间片，时间片用完就排到队列末尾。适合分时系统，响应时间均匀。'
+                };
+                document.getElementById('algorithmInfo').innerHTML = info[this.algorithm];
+            }
+
+            updateProcessQueue() {
+                const queue = document.getElementById('processQueue');
+                queue.innerHTML = '';
+
+                this.processes.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = 'process-card';
+                    card.style.background = `linear-gradient(135deg, #${p.color.toString(16).padStart(6, '0')} 0%, #000000 200%)`;
+                    card.innerHTML = `
+                        <div><strong>${p.name}</strong></div>
+                        <div style="font-size: 12px;">到达: ${p.arriveTime} | 需时: ${p.burstTime}</div>
+                    `;
+                    queue.appendChild(card);
+                });
+            }
+
+            startSimulation() {
+                if (this.isRunning) return;
+                this.isRunning = true;
+
+                // 根据算法执行调度
+                switch(this.algorithm) {
+                    case 'fcfs':
+                        this.fcfs();
+                        break;
+                    case 'sjf':
+                        this.sjf();
+                        break;
+                    case 'priority':
+                        this.priority();
+                        break;
+                    case 'rr':
+                        this.rr();
+                        break;
+                }
+            }
+
+            fcfs() {
+                let time = 0;
+                const executionBar = document.getElementById('executionBar');
+                executionBar.innerHTML = '';
+
+                // 按到达时间排序
+                const sorted = [...this.processes].sort((a, b) => a.arriveTime - b.arriveTime);
+
+                sorted.forEach((p, index) => {
+                    setTimeout(() => {
+                        const segment = document.createElement('div');
+                        segment.className = 'process-segment';
+                        segment.style.width = (p.burstTime * 30) + 'px';
+                        segment.style.background = `#${p.color.toString(16).padStart(6, '0')}`;
+                        segment.textContent = `${p.name}(${p.burstTime})`;
+                        executionBar.appendChild(segment);
+
+                        this.completedProcesses.push(p);
+                        this.updateStats();
+
+                        if (index === sorted.length - 1) {
+                            this.isRunning = false;
+                            this.showCompletionMessage();
+                        }
+                    }, time);
+                    time += p.burstTime * 500;
+                });
+            }
+
+            sjf() {
+                let time = 0;
+                const executionBar = document.getElementById('executionBar');
+                executionBar.innerHTML = '';
+
+                const remaining = [...this.processes];
+                let currentTime = 0;
+
+                while(remaining.length > 0) {
+                    // 找出已到达且burst最短的进程
+                    const arrived = remaining.filter(p => p.arriveTime <= currentTime);
+                    if (arrived.length === 0) {
+                        currentTime++;
+                        continue;
+                    }
+
+                    const shortest = arrived.reduce((min, p) =>
+                        p.burstTime < min.burstTime ? p : min
+                    );
+
+                    setTimeout(() => {
+                        const segment = document.createElement('div');
+                        segment.className = 'process-segment';
+                        segment.style.width = (shortest.burstTime * 30) + 'px';
+                        segment.style.background = `#${shortest.color.toString(16).padStart(6, '0')}`;
+                        segment.textContent = `${shortest.name}(${shortest.burstTime})`;
+                        executionBar.appendChild(segment);
+
+                        const idx = remaining.indexOf(shortest);
+                        remaining.splice(idx, 1);
+                        this.completedProcesses.push(shortest);
+                        this.updateStats();
+
+                        if (remaining.length === 0) {
+                            this.isRunning = false;
+                            this.showCompletionMessage();
+                        }
+                    }, currentTime * 500);
+
+                    currentTime += shortest.burstTime;
+                }
+            }
+
+            priority() {
+                // 优先级调度实现类似SJF，但按优先级排序
+                let time = 0;
+                const executionBar = document.getElementById('executionBar');
+                executionBar.innerHTML = '';
+
+                const remaining = [...this.processes];
+                let currentTime = 0;
+
+                while(remaining.length > 0) {
+                    const arrived = remaining.filter(p => p.arriveTime <= currentTime);
+                    if (arrived.length === 0) {
+                        currentTime++;
+                        continue;
+                    }
+
+                    const highest = arrived.reduce((max, p) =>
+                        p.priority < max.priority ? p : max
+                    );
+
+                    setTimeout(() => {
+                        const segment = document.createElement('div');
+                        segment.className = 'process-segment';
+                        segment.style.width = (highest.burstTime * 30) + 'px';
+                        segment.style.background = `#${highest.color.toString(16).padStart(6, '0')}`;
+                        segment.textContent = `${highest.name}(P${highest.priority})`;
+                        executionBar.appendChild(segment);
+
+                        const idx = remaining.indexOf(highest);
+                        remaining.splice(idx, 1);
+                        this.completedProcesses.push(highest);
+                        this.updateStats();
+
+                        if (remaining.length === 0) {
+                            this.isRunning = false;
+                            this.showCompletionMessage();
+                        }
+                    }, currentTime * 500);
+
+                    currentTime += highest.burstTime;
+                }
+            }
+
+            rr() {
+                const timeQuantum = 2; // 时间片
+                const executionBar = document.getElementById('executionBar');
+                executionBar.innerHTML = '';
+
+                const queue = [...this.processes];
+                let currentTime = 0;
+
+                const executeNext = () => {
+                    if (queue.length === 0) {
+                        this.isRunning = false;
+                        this.showCompletionMessage();
+                        return;
+                    }
+
+                    const process = queue.shift();
+                    const executeTime = Math.min(process.burstTime, timeQuantum);
+
+                    setTimeout(() => {
+                        const segment = document.createElement('div');
+                        segment.className = 'process-segment';
+                        segment.style.width = (executeTime * 30) + 'px';
+                        segment.style.background = `#${process.color.toString(16).padStart(6, '0')}`;
+                        segment.textContent = `${process.name}(${executeTime})`;
+                        executionBar.appendChild(segment);
+
+                        process.burstTime -= executeTime;
+
+                        if (process.burstTime > 0) {
+                            queue.push(process);
+                        } else {
+                            this.completedProcesses.push(process);
+                            this.updateStats();
+                        }
+
+                        currentTime += executeTime;
+                        executeNext();
+                    }, currentTime * 500);
+                };
+
+                executeNext();
+            }
+
+            updateStats() {
+                const completed = this.completedProcesses;
+                if (completed.length === 0) return;
+
+                const avgWait = (completed.reduce((sum, p) => sum + (p.arriveTime), 0) / completed.length).toFixed(2);
+                const avgTurnaround = (completed.reduce((sum, p) => sum + (p.burstTime + p.arriveTime), 0) / completed.length).toFixed(2);
+                const cpu = ((completed.reduce((sum, p) => sum + p.burstTime, 0) / Math.max(1, this.currentTime)) * 100).toFixed(1);
+
+                document.getElementById('avgWaitTime').textContent = avgWait;
+                document.getElementById('avgTurnaround').textContent = avgTurnaround;
+                document.getElementById('cpuUtilization').textContent = cpu + '%';
+                document.getElementById('completedProcess').textContent = completed.length;
+            }
+
+            resetSimulation() {
+                this.isRunning = false;
+                this.init();
+                document.getElementById('executionBar').innerHTML = '';
+                document.getElementById('avgWaitTime').textContent = '0';
+                document.getElementById('avgTurnaround').textContent = '0';
+                document.getElementById('cpuUtilization').textContent = '0%';
+                document.getElementById('completedProcess').textContent = '0';
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'process-scheduling',
+                            algorithm: this.algorithm,
+                            stage: 'learning'
+                        }
+                    );
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + hint.hint;
+                } catch (error) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + this.getOfflineHint();
+                }
+            }
+
+            getOfflineHint() {
+                const hints = {
+                    'fcfs': 'FCFS就像排队买票，先到先服务。看看哪些进程先到达？',
+                    'sjf': '短作业优先！哪个作业的执行时间最短？应该先执行它。',
+                    'priority': '优先级高的先执行！P1的优先级最高，P4最低。',
+                    'rr': '时间片轮转就像轮流使用公车，每人用2个单位时间，然后排队等待下一轮。'
+                };
+                return hints[this.algorithm];
+            }
+
+            showCompletionMessage() {
+                const messages = [
+                    '太棒了！你已经掌握了这个调度算法！',
+                    '做得很好！继续努力！',
+                    '你是个调度天才！字节叔为你骄傲！'
+                ];
+                const msg = messages[Math.floor(Math.random() * messages.length)];
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>' + msg;
+            }
+        }
+
+        // 初始化游戏
+        const game = new SchedulingGame();
+        game.init();
+    </script>
+</body>
+</html>

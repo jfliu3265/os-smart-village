@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仓库粮食管理 - 内存管理学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .game-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .game-container {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .main-area {
+            flex: 1;
+        }
+
+        .side-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 内存可视化区域 */
+        .memory-container {
+            background: #fff;
+            border: 3px solid #3498db;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .memory-block {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .memory-address {
+            width: 80px;
+            font-size: 14px;
+            color: #7f8c8d;
+            text-align: right;
+            padding-right: 10px;
+        }
+
+        .memory-cell {
+            flex: 1;
+            height: 50px;
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .memory-cell.occupied {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .memory-cell.free {
+            background: #d5f4e6;
+            border-color: #27ae60;
+            border-style: dashed;
+        }
+
+        .memory-cell.fragmented {
+            background: #ffeaa7;
+            border-color: #f39c12;
+        }
+
+        /* 粮食列表 */
+        .food-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .food-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .food-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .food-item.allocated {
+            opacity: 0.5;
+            background: #ecf0f1;
+        }
+
+        .food-icon {
+            font-size: 24px;
+        }
+
+        .food-info {
+            flex: 1;
+        }
+
+        .food-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .food-size {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        /* 控制按钮 */
+        .control-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* 统计信息 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 4px;
+        }
+
+        /* 字节叔对话框 */
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 3px solid #ffc107;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 15px;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .uncle-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: #856404;
+            font-weight: bold;
+        }
+
+        .uncle-avatar {
+            font-size: 32px;
+        }
+
+        .uncle-message {
+            color: #856404;
+            line-height: 1.6;
+        }
+
+        /* 算法选择标签 */
+        .algorithm-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px;
+            border: 2px solid #3498db;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+
+        .tab-btn:hover {
+            background: #ecf0f1;
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        /* 页面置换可视化 */
+        .page-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .page-table th,
+        .page-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .page-table th {
+            background: #3498db;
+            color: white;
+        }
+
+        .page-table tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+
+        .page-hit {
+            background: #d4edda !important;
+            color: #155724;
+        }
+
+        .page-miss {
+            background: #f8d7da !important;
+            color: #721c24;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+            background: #2980b9;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-wrapper">
+        <div class="header">
+            <h1>🏠 仓库粮食管理 - 内存管理学习</h1>
+            <p>学习如何高效地管理粮仓空间，就像操作系统管理内存一样！</p>
+        </div>
+
+        <div class="game-container">
+            <div class="main-area">
+                <!-- 算法选择 -->
+                <div class="panel">
+                    <div class="panel-title">📚 选择内存管理方式</div>
+                    <div class="algorithm-tabs">
+                        <button class="tab-btn active" onclick="game.setMode('fixed')">
+                            固定分区
+                        </button>
+                        <button class="tab-btn" onclick="game.setMode('variable')">
+                            可变分区
+                        </button>
+                        <button class="tab-btn" onclick="game.setMode('paging')">
+                            分页管理
+                        </button>
+                        <button class="tab-btn" onclick="game.setMode('virtual')">
+                            虚拟内存
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 内存可视化 -->
+                <div class="memory-container">
+                    <h3 style="margin-bottom: 15px; color: #2c3e50;">
+                        📍 粮仓空间布局（内存空间）
+                    </h3>
+                    <div id="memoryVisualization"></div>
+                </div>
+
+                <!-- 字节叔对话框 -->
+                <div class="uncle-dialog">
+                    <div class="uncle-header">
+                        <span class="uncle-avatar">👴</span>
+                        <span>字节叔</span>
+                    </div>
+                    <div class="uncle-message" id="uncleMessage">
+                        欢迎来到仓库粮食管理！粮仓就像计算机的内存，我们需要合理分配空间来存储不同的粮食。
+                        选择一种内存管理方式开始学习吧！
+                    </div>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <!-- 待分配粮食 -->
+                <div class="panel">
+                    <div class="panel-title">🌾 待存储粮食（进程）</div>
+                    <div class="food-list" id="foodList"></div>
+                    <button class="control-btn btn-success" onclick="game.allocateNext()">
+                        ✅ 分配下一个
+                    </button>
+                </div>
+
+                <!-- 控制面板 -->
+                <div class="panel">
+                    <div class="panel-title">🎮 控制面板</div>
+                    <button class="control-btn btn-warning" onclick="game.compactMemory()">
+                        🔄 碎片整理
+                    </button>
+                    <button class="control-btn btn-danger" onclick="game.reset()">
+                        🔃 重新开始
+                    </button>
+                    <button class="control-btn btn-primary" onclick="game.showHint()">
+                        💡 获取提示
+                    </button>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="panel">
+                    <div class="panel-title">📊 存储统计</div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalMemory">64</div>
+                            <div class="stat-label">总容量(KB)</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="usedMemory">0</div>
+                            <div class="stat-label">已使用(KB)</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="freeMemory">64</div>
+                            <div class="stat-label">空闲(KB)</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="fragmentation">0%</div>
+                            <div class="stat-label">碎片率</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 算法说明 -->
+                <div class="panel">
+                    <div class="panel-title">📖 算法说明</div>
+                    <div id="algorithmInfo">
+                        <strong>固定分区分配</strong><br>
+                        将内存划分为固定大小的分区，每个分区只能存放一个进程。
+                        优点是实现简单，缺点是会产生内部碎片。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../common/api-client.js"></script>
+    <script>
+        class MemoryGame {
+            constructor() {
+                this.mode = 'fixed';
+                this.memorySize = 64; // KB
+                this.partitionSize = 16; // KB for fixed partitions
+                this.memory = [];
+                this.foods = [];
+                this.allocatedCount = 0;
+
+                this.foodTypes = [
+                    { name: '小麦', size: 8, icon: '🌾' },
+                    { name: '玉米', size: 12, icon: '🌽' },
+                    { name: '大米', size: 16, icon: '🍚' },
+                    { name: '大豆', size: 6, icon: '🫘' },
+                    { name: '高粱', size: 10, icon: '🌾' },
+                    { name: '谷子', size: 8, icon: '🌾' }
+                ];
+
+                this.init();
+            }
+
+            init() {
+                this.initMemory();
+                this.generateFoods();
+                this.renderMemory();
+                this.renderFoods();
+                this.updateStats();
+                this.updateAlgorithmInfo();
+            }
+
+            initMemory() {
+                this.memory = [];
+
+                if (this.mode === 'fixed') {
+                    // 固定分区：4个16KB的分区
+                    for (let i = 0; i < 4; i++) {
+                        this.memory.push({
+                            start: i * 16,
+                            end: (i + 1) * 16,
+                            size: 16,
+                            allocated: false,
+                            process: null,
+                            type: 'fixed'
+                        });
+                    }
+                } else if (this.mode === 'variable') {
+                    // 可变分区：初始一个大分区
+                    this.memory.push({
+                        start: 0,
+                        end: 64,
+                        size: 64,
+                        allocated: false,
+                        process: null,
+                        type: 'variable'
+                    });
+                } else if (this.mode === 'paging') {
+                    // 分页：16个4KB的页面
+                    for (let i = 0; i < 16; i++) {
+                        this.memory.push({
+                            start: i * 4,
+                            end: (i + 1) * 4,
+                            size: 4,
+                            allocated: false,
+                            process: null,
+                            type: 'page',
+                            pageNumber: i
+                        });
+                    }
+                } else if (this.mode === 'virtual') {
+                    // 虚拟内存：8个物理页
+                    for (let i = 0; i < 8; i++) {
+                        this.memory.push({
+                            start: i * 8,
+                            end: (i + 1) * 8,
+                            size: 8,
+                            allocated: false,
+                            process: null,
+                            type: 'physical'
+                        });
+                    }
+                }
+            }
+
+            generateFoods() {
+                this.foods = [];
+                for (let i = 0; i < 6; i++) {
+                    const type = this.foodTypes[i % this.foodTypes.length];
+                    this.foods.push({
+                        id: i,
+                        ...type,
+                        allocated: false
+                    });
+                }
+            }
+
+            renderMemory() {
+                const container = document.getElementById('memoryVisualization');
+                container.innerHTML = '';
+
+                this.memory.forEach((block, index) => {
+                    const blockDiv = document.createElement('div');
+                    blockDiv.className = 'memory-block animate-in';
+
+                    const addressDiv = document.createElement('div');
+                    addressDiv.className = 'memory-address';
+                    addressDiv.textContent = `0x${(block.start).toString(16).toUpperCase().padStart(2, '0')}`;
+
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'memory-cell';
+
+                    if (block.allocated) {
+                        cellDiv.classList.add('occupied');
+                        cellDiv.textContent = `${block.process} (${block.size}KB)`;
+                    } else if (this.mode === 'variable' && block.size < 64) {
+                        cellDiv.classList.add('fragmented');
+                        cellDiv.textContent = `空闲 ${block.size}KB`;
+                    } else {
+                        cellDiv.classList.add('free');
+                        cellDiv.textContent = this.mode === 'paging' ? `页${block.pageNumber}` : '空闲';
+                    }
+
+                    blockDiv.appendChild(addressDiv);
+                    blockDiv.appendChild(cellDiv);
+                    container.appendChild(blockDiv);
+                });
+            }
+
+            renderFoods() {
+                const container = document.getElementById('foodList');
+                container.innerHTML = '';
+
+                this.foods.forEach(food => {
+                    if (!food.allocated) {
+                        const foodDiv = document.createElement('div');
+                        foodDiv.className = 'food-item animate-in';
+                        foodDiv.innerHTML = `
+                            <span class="food-icon">${food.icon}</span>
+                            <div class="food-info">
+                                <div class="food-name">${food.name}</div>
+                                <div class="food-size">大小: ${food.size}KB</div>
+                            </div>
+                        `;
+                        container.appendChild(foodDiv);
+                    }
+                });
+            }
+
+            allocateNext() {
+                const unallocatedFood = this.foods.find(f => !f.allocated);
+                if (!unallocatedFood) {
+                    this.showMessage('所有粮食都已经分配完毕！👏');
+                    return;
+                }
+
+                let allocated = false;
+
+                if (this.mode === 'fixed') {
+                    allocated = this.allocateFixed(unallocatedFood);
+                } else if (this.mode === 'variable') {
+                    allocated = this.allocateVariable(unallocatedFood);
+                } else if (this.mode === 'paging') {
+                    allocated = this.allocatePaging(unallocatedFood);
+                } else if (this.mode === 'virtual') {
+                    allocated = this.allocateVirtual(unallocatedFood);
+                }
+
+                if (allocated) {
+                    unallocatedFood.allocated = true;
+                    this.allocatedCount++;
+                    this.renderMemory();
+                    this.renderFoods();
+                    this.updateStats();
+
+                    if (this.allocatedCount === this.foods.length) {
+                        this.showMessage('太棒了！所有粮食都成功分配了！你已经掌握了' + this.getModeName() + '！🎉');
+                    }
+                } else {
+                    this.showMessage('哎呀！没有足够的连续空间了。试试碎片整理功能吧！');
+                }
+            }
+
+            allocateFixed(food) {
+                // 首次适应算法
+                for (let block of this.memory) {
+                    if (!block.allocated && block.size >= food.size) {
+                        block.allocated = true;
+                        block.process = food.name;
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            allocateVariable(food) {
+                // 首次适应算法
+                for (let i = 0; i < this.memory.length; i++) {
+                    const block = this.memory[i];
+                    if (!block.allocated && block.size >= food.size) {
+                        // 分配空间
+                        const newBlock = {
+                            start: block.start,
+                            end: block.start + food.size,
+                            size: food.size,
+                            allocated: true,
+                            process: food.name,
+                            type: 'variable'
+                        };
+
+                        // 剩余空间
+                        const remainingBlock = {
+                            start: block.start + food.size,
+                            end: block.end,
+                            size: block.size - food.size,
+                            allocated: false,
+                            process: null,
+                            type: 'variable'
+                        };
+
+                        this.memory.splice(i, 1, newBlock);
+                        if (remainingBlock.size > 0) {
+                            this.memory.splice(i + 1, 0, remainingBlock);
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            allocatePaging(food) {
+                // 需要的页数
+                const pagesNeeded = Math.ceil(food.size / 4);
+                let allocatedPages = 0;
+
+                for (let block of this.memory) {
+                    if (!block.allocated) {
+                        block.allocated = true;
+                        block.process = food.name + '(页' + block.pageNumber + ')';
+                        allocatedPages++;
+
+                        if (allocatedPages === pagesNeeded) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            allocateVirtual(food) {
+                // 简化的虚拟内存分配
+                for (let block of this.memory) {
+                    if (!block.allocated && block.size >= food.size) {
+                        block.allocated = true;
+                        block.process = food.name;
+                        return true;
+                    }
+                }
+                // 如果物理内存满了，提示需要页面置换
+                this.showMessage('物理内存已满！在实际的虚拟内存系统中，系统会将不常用的页换出到磁盘。');
+                return false;
+            }
+
+            compactMemory() {
+                if (this.mode !== 'variable') {
+                    this.showMessage('只有可变分区模式需要碎片整理！');
+                    return;
+                }
+
+                // 合并相邻的空闲块
+                let merged = true;
+                while (merged) {
+                    merged = false;
+                    for (let i = 0; i < this.memory.length - 1; i++) {
+                        if (!this.memory[i].allocated && !this.memory[i + 1].allocated) {
+                            this.memory[i].end = this.memory[i + 1].end;
+                            this.memory[i].size += this.memory[i + 1].size;
+                            this.memory.splice(i + 1, 1);
+                            merged = true;
+                            break;
+                        }
+                    }
+                }
+
+                this.renderMemory();
+                this.updateStats();
+                this.showMessage('碎片整理完成！现在有更大的连续空间了。✨');
+            }
+
+            setMode(mode) {
+                this.mode = mode;
+                this.allocatedCount = 0;
+
+                // 更新标签样式
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                this.init();
+                this.showMessage('已切换到' + this.getModeName() + '模式！');
+            }
+
+            getModeName() {
+                const names = {
+                    'fixed': '固定分区',
+                    'variable': '可变分区',
+                    'paging': '分页管理',
+                    'virtual': '虚拟内存'
+                };
+                return names[this.mode];
+            }
+
+            updateStats() {
+                const used = this.memory.filter(b => b.allocated).reduce((sum, b) => sum + b.size, 0);
+                const free = this.memorySize - used;
+
+                // 计算碎片率
+                let fragmentation = 0;
+                if (this.mode === 'variable') {
+                    const freeBlocks = this.memory.filter(b => !b.allocated);
+                    if (freeBlocks.length > 1) {
+                        fragmentation = Math.round((1 - free / (freeBlocks.length * Math.max(...freeBlocks.map(b => b.size)))) * 100);
+                    }
+                }
+
+                document.getElementById('totalMemory').textContent = this.memorySize;
+                document.getElementById('usedMemory').textContent = used;
+                document.getElementById('freeMemory').textContent = free;
+                document.getElementById('fragmentation').textContent = fragmentation + '%';
+            }
+
+            updateAlgorithmInfo() {
+                const infos = {
+                    'fixed': '<strong>固定分区分配</strong><br>将内存划分为固定大小的分区，每个分区只能存放一个进程。优点是实现简单，缺点是会产生内部碎片。',
+                    'variable': '<strong>可变分区分配</strong><br>根据进程大小动态划分内存。优点是内存利用率高，缺点是会产生外部碎片，需要碎片整理。',
+                    'paging': '<strong>分页管理</strong><br>将内存划分为固定大小的页，进程也划分为页。通过页表映射，消除了外部碎片，但可能有内部碎片。',
+                    'virtual': '<strong>虚拟内存</strong><br>允许程序使用比物理内存更大的空间。不常用的页被换出到磁盘，需要时再换入。大大提高了内存利用率。'
+                };
+                document.getElementById('algorithmInfo').innerHTML = infos[this.mode];
+            }
+
+            showMessage(msg) {
+                document.getElementById('uncleMessage').innerHTML = msg;
+            }
+
+            reset() {
+                this.init();
+                this.allocatedCount = 0;
+                this.showMessage('已重置！让我们重新开始吧！');
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'memory-management',
+                            mode: this.mode,
+                            stage: 'learning'
+                        }
+                    );
+                    this.showMessage('👴 字节叔<br>' + hint.hint);
+                } catch (error) {
+                    this.showMessage(this.getOfflineHint());
+                }
+            }
+
+            getOfflineHint() {
+                const hints = {
+                    'fixed': '固定分区很简单！找到第一个足够大的空闲分区，把粮食放进去就行。就像把东西放进固定大小的盒子里。',
+                    'variable': '可变分区需要找到连续的空闲空间。如果空间不够大，试试碎片整理功能！',
+                    'paging': '分页管理中，内存被分成4KB的页。粮食会被分成多个页存储。这是现代OS最常用的方式！',
+                    'virtual': '虚拟内存让程序可以使用比物理内存更多的空间。当物理内存满了，系统会把不用的内容换到磁盘上。'
+                };
+                return '👴 字节叔<br>' + hints[this.mode];
+            }
+        }
+
+        // 初始化游戏
+        const game = new MemoryGame();
+    </script>
+</body>
+</html>

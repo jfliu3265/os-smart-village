@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>村庄档案室 - 文件系统学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .game-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin: 0;
+        }
+
+        .main-content {
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .file-explorer {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        /* 文件树 */
+        .file-tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+        }
+
+        .tree-item {
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .tree-item:hover {
+            background: #e9ecef;
+        }
+
+        .tree-item.selected {
+            background: #3498db;
+            color: white;
+        }
+
+        .tree-item .icon {
+            font-size: 18px;
+        }
+
+        .tree-children {
+            margin-left: 20px;
+        }
+
+        /* 文件内容区域 */
+        .file-area {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            padding: 20px;
+            margin-top: 15px;
+            overflow-y: auto;
+        }
+
+        /* 工具栏 */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .tool-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        /* 输入表单 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        /* 文件图标 */
+        .file-icon {
+            font-size: 48px;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        /* 权限设置 */
+        .permission-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .permission-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 路径导航 */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .breadcrumb-item {
+            cursor: pointer;
+            color: #495057;
+        }
+
+        .breadcrumb-item:hover {
+            color: #3498db;
+            text-decoration: underline;
+        }
+
+        /* inode信息 */
+        .inode-info {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        /* 搜索结果 */
+        .search-results {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: #f8f9fa;
+        }
+
+        /* 字节叔对话框 */
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 3px solid #ffc107;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .uncle-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #856404;
+            font-weight: bold;
+        }
+
+        .uncle-message {
+            color: #856404;
+            line-height: 1.6;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+            background: #2980b9;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>📁 村庄档案室 - 文件系统学习</h1>
+            <p>学习如何组织和管理文件，就像管理村庄的档案一样！</p>
+        </div>
+
+        <div class="main-content">
+            <div class="file-explorer">
+                <!-- 路径导航 -->
+                <div class="breadcrumb" id="breadcrumb">
+                    <span class="breadcrumb-item" onclick="game.navigateTo('/')">根目录</span>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="toolbar">
+                    <button class="tool-btn btn-primary" onclick="game.showCreateFolder()">
+                        📁 新建文件夹
+                    </button>
+                    <button class="tool-btn btn-success" onclick="game.showCreateFile()">
+                        📄 新建文件
+                    </button>
+                    <button class="tool-btn btn-warning" onclick="game.showDelete()">
+                        🗑️ 删除
+                    </button>
+                    <button class="tool-btn btn-info" onclick="game.showPermissions()">
+                        🔒 权限设置
+                    </button>
+                    <button class="tool-btn btn-primary" onclick="game.showSearch()">
+                        🔍 搜索文件
+                    </button>
+                </div>
+
+                <!-- 文件树视图 -->
+                <div class="file-tree" id="fileTree">
+                    <!-- 文件树将在这里动态生成 -->
+                </div>
+
+                <!-- 文件/文件夹详细信息 -->
+                <div class="file-area" id="fileArea">
+                    <div class="file-icon">📁</div>
+                    <h3 style="text-align: center;">选择一个文件或文件夹查看详情</h3>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <!-- inode信息 -->
+                <div class="panel">
+                    <div class="panel-title">📊 Inode 信息</div>
+                    <div class="inode-info" id="inodeInfo">
+                        选择文件查看inode信息...
+                    </div>
+                </div>
+
+                <!-- 文件统计 -->
+                <div class="panel">
+                    <div class="panel-title">📈 档案统计</div>
+                    <div class="stats-grid">
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #3498db;" id="totalFiles">0</div>
+                            <div style="font-size: 12px; color: #7f8c8d;">文件总数</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #27ae60;" id="totalFolders">0</div>
+                            <div style="font-size: 12px; color: #7f8c8d;">文件夹数</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #f39c12;" id="totalSize">0KB</div>
+                            <div style="font-size: 12px; color: #7f8c8d;">总大小</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 字节叔对话框 -->
+                <div class="panel">
+                    <div class="panel-title">👴 字节叔</div>
+                    <div class="uncle-dialog">
+                        <div class="uncle-header">
+                            <span style="font-size: 24px;">👴</span>
+                            <span>字节叔</span>
+                        </div>
+                        <div class="uncle-message" id="uncleMessage">
+                            欢迎来到村庄档案室！这里存放着村庄所有的重要文件。
+                            文件系统就像一个智能档案柜，可以帮你快速找到需要的文件。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../common/api-client.js"></script>
+    <script>
+        class FileSystemGame {
+            constructor() {
+                this.currentPath = '/';
+                this.selectedItem = null;
+                this.fileSystem = this.initFileSystem();
+                this.nextInode = 100;
+                this.init();
+            }
+
+            initFileSystem() {
+                return {
+                    '/': {
+                        type: 'dir',
+                        inode: 1,
+                        children: {
+                            'home': {
+                                type: 'dir',
+                                inode: 2,
+                                children: {
+                                    '村民档案.txt': {
+                                        type: 'file',
+                                        inode: 3,
+                                        size: 2,
+                                        permissions: 'rw-r--r--',
+                                        content: '村民基本信息登记表'
+                                    },
+                                    '土地证.pdf': {
+                                        type: 'file',
+                                        inode: 4,
+                                        size: 128,
+                                        permissions: 'rw-------',
+                                        content: '[PDF文件]'
+                                    }
+                                }
+                            },
+                            'public': {
+                                type: 'dir',
+                                inode: 5,
+                                children: {
+                                    '村规民约.doc': {
+                                        type: 'file',
+                                        inode: 6,
+                                        size: 16,
+                                        permissions: 'rw-rw-r--',
+                                        content: '村庄规章制度文档'
+                                    },
+                                    '公告.txt': {
+                                        type: 'file',
+                                        inode: 7,
+                                        size: 4,
+                                        permissions: 'r--r--r--',
+                                        content: '最新通知公告'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+
+            init() {
+                this.renderFileTree();
+                this.updateStats();
+            }
+
+            getItem(path) {
+                const parts = path.split('/').filter(p => p);
+                let current = this.fileSystem['/'];
+
+                for (let part of parts) {
+                    if (current.children && current.children[part]) {
+                        current = current.children[part];
+                    } else {
+                        return null;
+                    }
+                }
+                return current;
+            }
+
+            navigateTo(path) {
+                this.currentPath = path;
+                this.selectedItem = null;
+                this.renderFileTree();
+                this.updateBreadcrumb();
+                this.updateFileArea(this.getItem(path));
+            }
+
+            renderFileTree() {
+                const container = document.getElementById('fileTree');
+                container.innerHTML = '';
+
+                const currentItem = this.getItem(this.currentPath);
+                if (!currentItem || !currentItem.children) {
+                    container.innerHTML = '<div style="padding: 20px; text-align: center; color: #7f8c8d;">空文件夹</div>';
+                    return;
+                }
+
+                Object.entries(currentItem.children).forEach(([name, item]) => {
+                    const div = document.createElement('div');
+                    div.className = 'tree-item slide-in';
+
+                    const icon = document.createElement('span');
+                    icon.className = 'icon';
+                    icon.textContent = item.type === 'dir' ? '📁' : '📄';
+
+                    const text = document.createElement('span');
+                    text.textContent = name;
+
+                    div.appendChild(icon);
+                    div.appendChild(text);
+
+                    div.onclick = () => {
+                        document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+                        this.selectedItem = { name, item, path: this.currentPath === '/' ? '/' + name : this.currentPath + '/' + name };
+                        this.updateInodeInfo(item);
+                    };
+
+                    if (item.type === 'dir') {
+                        div.ondblclick = () => {
+                            const newPath = this.currentPath === '/' ? '/' + name : this.currentPath + '/' + name;
+                            this.navigateTo(newPath);
+                        };
+                    }
+
+                    container.appendChild(div);
+                });
+            }
+
+            updateBreadcrumb() {
+                const container = document.getElementById('breadcrumb');
+                const parts = this.currentPath.split('/').filter(p => p);
+
+                let html = '<span class="breadcrumb-item" onclick="game.navigateTo(\'/\')">根目录</span>';
+
+                let path = '';
+                parts.forEach((part, index) => {
+                    path += '/' + part;
+                    html += ' <span style="color: #adb5bd;">›</span> ';
+                    html += `<span class="breadcrumb-item" onclick="game.navigateTo('${path}')">${part}</span>`;
+                });
+
+                container.innerHTML = html;
+            }
+
+            updateFileArea(item) {
+                const area = document.getElementById('fileArea');
+                if (!item) {
+                    area.innerHTML = '<div class="file-icon">❓</div><h3 style="text-align: center;">项目不存在</h3>';
+                    return;
+                }
+
+                if (item.type === 'dir') {
+                    area.innerHTML = `
+                        <div class="file-icon">📁</div>
+                        <h3 style="text-align: center;">${this.currentPath === '/' ? '根目录' : this.getItemName(this.currentPath)}</h3>
+                        <p style="text-align: center; color: #7f8c8d;">包含 ${Object.keys(item.children || {}).length} 个项目</p>
+                    `;
+                } else {
+                    area.innerHTML = `
+                        <div class="file-icon">📄</div>
+                        <h3 style="text-align: center;">${this.getItemName(this.currentPath)}</h3>
+                        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                            <strong>文件内容：</strong><br>
+                            ${item.content || '空文件'}
+                        </div>
+                    `;
+                }
+            }
+
+            getItemName(path) {
+                const parts = path.split('/').filter(p => p);
+                return parts[parts.length - 1] || '根目录';
+            }
+
+            updateInodeInfo(item) {
+                if (!item) {
+                    document.getElementById('inodeInfo').innerHTML = '选择文件查看inode信息...';
+                    return;
+                }
+
+                const info = `
+<strong>Inode编号:</strong> ${item.inode}
+<strong>类型:</strong> ${item.type === 'dir' ? '目录' : '文件'}
+<strong>大小:</strong> ${item.size || 0} KB
+<strong>权限:</strong> ${item.permissions || 'rw-r--r--'}
+<strong>链接数:</strong> 1
+<strong>修改时间:</strong> 2025-01-05 10:30:00
+                `;
+
+                document.getElementById('inodeInfo').innerHTML = info;
+            }
+
+            showCreateFolder() {
+                const name = prompt('请输入文件夹名称：');
+                if (!name) return;
+
+                const currentItem = this.getItem(this.currentPath);
+                if (!currentItem.children) {
+                    currentItem.children = {};
+                }
+
+                currentItem.children[name] = {
+                    type: 'dir',
+                    inode: this.nextInode++,
+                    children: {}
+                };
+
+                this.renderFileTree();
+                this.updateStats();
+                this.showMessage(`文件夹 "${name}" 创建成功！`);
+            }
+
+            showCreateFile() {
+                const name = prompt('请输入文件名称（如：readme.txt）：');
+                if (!name) return;
+
+                const size = Math.floor(Math.random() * 100) + 1;
+
+                const currentItem = this.getItem(this.currentPath);
+                if (!currentItem.children) {
+                    currentItem.children = {};
+                }
+
+                currentItem.children[name] = {
+                    type: 'file',
+                    inode: this.nextInode++,
+                    size: size,
+                    permissions: 'rw-r--r--',
+                    content: `这是 ${name} 的内容`
+                };
+
+                this.renderFileTree();
+                this.updateStats();
+                this.showMessage(`文件 "${name}" 创建成功！\n它被分配了 inode ${this.nextInode - 1}`);
+            }
+
+            showDelete() {
+                if (!this.selectedItem) {
+                    alert('请先选择要删除的文件或文件夹！');
+                    return;
+                }
+
+                if (confirm(`确定要删除 "${this.selectedItem.name}" 吗？`)) {
+                    const parentPath = this.currentPath;
+                    const parentItem = this.getItem(parentPath);
+
+                    if (parentItem && parentItem.children) {
+                        delete parentItem.children[this.selectedItem.name];
+                        this.renderFileTree();
+                        this.updateStats();
+                        this.showMessage(`"${this.selectedItem.name}" 已删除！`);
+                        this.selectedItem = null;
+                    }
+                }
+            }
+
+            showPermissions() {
+                if (!this.selectedItem) {
+                    alert('请先选择要设置权限的文件！');
+                    return;
+                }
+
+                const permissions = prompt('设置权限（如：rwxr-xr-x）：', this.selectedItem.item.permissions || 'rw-r--r--');
+                if (permissions) {
+                    this.selectedItem.item.permissions = permissions;
+                    this.updateInodeInfo(this.selectedItem.item);
+                    this.showMessage(`权限已更新为：${permissions}\n解释：所有者${permissions.substr(0,3)} 组${permissions.substr(3,3)} 其他人${permissions.substr(6,3)}`);
+                }
+            }
+
+            showSearch() {
+                const query = prompt('请输入要搜索的文件名：');
+                if (!query) return;
+
+                const results = [];
+                this.searchRecursive(this.fileSystem['/'], '', query, results);
+
+                if (results.length === 0) {
+                    alert('未找到匹配的文件');
+                    return;
+                }
+
+                const message = `找到 ${results.length} 个文件：\n` + results.join('\n');
+                this.showMessage(message);
+            }
+
+            searchRecursive(item, path, query, results) {
+                if (item.children) {
+                    Object.entries(item.children).forEach(([name, child]) => {
+                        const fullPath = path + '/' + name;
+                        if (name.toLowerCase().includes(query.toLowerCase())) {
+                            results.push(fullPath + (child.type === 'dir' ? '/' : ''));
+                        }
+                        if (child.type === 'dir') {
+                            this.searchRecursive(child, fullPath, query, results);
+                        }
+                    });
+                }
+            }
+
+            updateStats() {
+                let files = 0;
+                let folders = 0;
+                let size = 0;
+
+                this.countRecursive(this.fileSystem['/'], files, folders, size);
+
+                document.getElementById('totalFiles').textContent = files;
+                document.getElementById('totalFolders').textContent = folders;
+                document.getElementById('totalSize').textContent = size + 'KB';
+            }
+
+            countRecursive(item, files, folders, size) {
+                if (item.children) {
+                    Object.values(item.children).forEach(child => {
+                        if (child.type === 'dir') {
+                            folders++;
+                            this.countRecursive(child, files, folders, size);
+                        } else {
+                            files++;
+                            size += child.size || 0;
+                        }
+                    });
+                }
+            }
+
+            showMessage(msg) {
+                document.getElementById('uncleMessage').innerHTML = msg.replace(/\n/g, '<br>');
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'file-system',
+                            path: this.currentPath,
+                            stage: 'learning'
+                        }
+                    );
+                    this.showMessage('👴 字节叔<br>' + hint.hint);
+                } catch (error) {
+                    this.showMessage('👴 字节叔<br>文件系统就像一个智能档案柜。inode就像档案柜上的编号，通过它可以快速找到文件。试试创建一些文件和文件夹吧！');
+                }
+            }
+        }
+
+        // 初始化游戏
+        const game = new FileSystemGame();
+    </script>
+</body>
+</html>

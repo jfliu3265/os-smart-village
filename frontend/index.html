@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作系统智慧乡村 - OS Smart Village</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- 游戏容器 -->
+        <div id="game-container"></div>
+
+        <!-- 加载界面 -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-content">
+                <h1>操作系统智慧乡村</h1>
+                <div class="loading-spinner"></div>
+                <p>正在加载村庄资源...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.5/dist/axios.min.js"></script>
+
+    <script>
+        // API配置
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // 创建全局axios实例
+        const api = axios.create({
+            baseURL: API_BASE_URL,
+            timeout: 10000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // 游戏配置
+        const GAMES = [
+            {
+                id: 'process-scheduling',
+                name: '农田作业调度',
+                subtitle: '进程调度',
+                icon: '🌾',
+                description: '学习FCFS、SJF、时间片轮转等调度算法',
+                path: 'games/process-scheduling/index.html'
+            },
+            {
+                id: 'memory-management',
+                name: '仓库粮食管理',
+                subtitle: '内存管理',
+                icon: '🏠',
+                description: '学习分页、分段、虚拟内存等内存管理技术',
+                path: 'games/memory-management/index.html'
+            },
+            {
+                id: 'file-system',
+                name: '村庄档案室',
+                subtitle: '文件系统',
+                icon: '📁',
+                description: '学习文件、目录、inode等文件系统概念',
+                path: 'games/file-system/index.html'
+            },
+            {
+                id: 'process-sync',
+                name: '村民协作',
+                subtitle: '进程同步',
+                icon: '🤝',
+                description: '学习信号量、互斥锁等进程同步机制',
+                path: 'games/process-sync/index.html'
+            },
+            {
+                id: 'deadlock-handling',
+                name: '资源争端调解',
+                subtitle: '死锁处理',
+                icon: '⚖️',
+                description: '学习死锁预防、检测和恢复',
+                path: 'games/deadlock-handling/index.html'
+            },
+            {
+                id: 'io-management',
+                name: '物资运输队',
+                subtitle: 'I/O管理',
+                icon: '🚚',
+                description: '学习中断、缓冲、Spooling等I/O技术',
+                path: 'games/io-management/index.html'
+            }
+        ];
+
+        // Phaser游戏场景 - 村庄广场
+        class VillageScene extends Phaser.Scene {
+            constructor() {
+                super({ key: 'VillageScene' });
+            }
+
+            preload() {
+                // 这里会预加载游戏资源
+                this.load.image('bg', 'data:image/svg+xml;base64,' + btoa(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="768">
+                        <rect fill="#87CEEB" width="1024" height="768"/>
+                        <rect fill="#90EE90" y="500" width="1024" height="268"/>
+                    </svg>
+                `));
+            }
+
+            create() {
+                // 隐藏加载界面
+                document.getElementById('loading-screen').style.display = 'none';
+
+                const width = this.cameras.main.width;
+                const height = this.cameras.main.height;
+
+                // 标题
+                this.add.text(width / 2, 50, '操作系统智慧乡村', {
+                    fontSize: '48px',
+                    fill: '#2c3e50',
+                    fontStyle: 'bold',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0.5);
+
+                this.add.text(width / 2, 100, '选择一个建筑物开始学习', {
+                    fontSize: '24px',
+                    fill: '#7f8c8d',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0.5);
+
+                // 字节叔角色
+                const uncleContainer = this.add.container(width / 2, 180);
+
+                const uncleBg = this.add.graphics();
+                uncleBg.fillStyle(0xffffff, 0.9);
+                uncleBg.fillRoundedRect(-200, -60, 400, 120, 10);
+
+                const uncleText = this.add.text(0, -20, '👴 字节叔', {
+                    fontSize: '32px',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0.5);
+
+                const uncleDialog = this.add.text(0, 20, '欢迎来到智慧乡村！点击建筑物开始学习操作系统知识吧', {
+                    fontSize: '16px',
+                    fill: '#34495e',
+                    fontFamily: 'Arial, sans-serif',
+                    align: 'center',
+                    wordWrap: { width: 350 }
+                }).setOrigin(0.5);
+
+                uncleContainer.add([uncleBg, uncleText, uncleDialog]);
+                this.tweens.add({
+                    targets: uncleContainer,
+                    y: 190,
+                    duration: 1500,
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Sine.easeInOut'
+                });
+
+                // 游戏建筑卡片
+                const cardWidth = 280;
+                const cardHeight = 160;
+                const padding = 20;
+                const cols = 3;
+                const startX = (width - (cols * cardWidth + (cols - 1) * padding)) / 2 + cardWidth / 2;
+                const startY = 350;
+
+                GAMES.forEach((game, index) => {
+                    const row = Math.floor(index / cols);
+                    const col = index % cols;
+
+                    const x = startX + col * (cardWidth + padding);
+                    const y = startY + row * (cardHeight + padding);
+
+                    // 卡牌背景
+                    const card = this.add.graphics();
+                    card.fillStyle(0xffffff, 1);
+                    card.fillRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+                    card.lineStyle(2, 0x3498db);
+                    card.strokeRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+
+                    // 游戏图标
+                    const icon = this.add.text(0, -cardHeight / 2 + 40, game.icon, {
+                        fontSize: '48px'
+                    }).setOrigin(0.5);
+
+                    // 游戏名称
+                    const title = this.add.text(0, 10, game.name, {
+                        fontSize: '20px',
+                        fontStyle: 'bold',
+                        fill: '#2c3e50'
+                    }).setOrigin(0.5);
+
+                    // 游戏描述
+                    const desc = this.add.text(0, 40, game.subtitle, {
+                        fontSize: '14px',
+                        fill: '#7f8c8d'
+                    }).setOrigin(0.5);
+
+                    // 组合容器
+                    const container = this.add.container(x, y);
+                    container.add([card, icon, title, desc]);
+
+                    // 交互区域
+                    const hitArea = this.add.zone(
+                        -cardWidth / 2, -cardHeight / 2,
+                        cardWidth, cardHeight
+                    ).setInteractive({ useHandCursor: true });
+
+                    container.add(hitArea);
+
+                    // 悬停效果
+                    hitArea.on('pointerover', () => {
+                        card.clear();
+                        card.fillStyle(0xf0f8ff, 1);
+                        card.fillRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+                        card.lineStyle(3, 0xe74c3c);
+                        card.strokeRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+                    });
+
+                    hitArea.on('pointerout', () => {
+                        card.clear();
+                        card.fillStyle(0xffffff, 1);
+                        card.fillRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+                        card.lineStyle(2, 0x3498db);
+                        card.strokeRoundedRect(-cardWidth / 2, -cardHeight / 2, cardWidth, cardHeight, 10);
+                    });
+
+                    // 点击事件
+                    hitArea.on('pointerdown', () => {
+                        this.launchGame(game);
+                    });
+                });
+
+                // 报告按钮
+                const reportBtn = this.add.graphics();
+                reportBtn.fillStyle(0xf39c12, 1);
+                reportBtn.fillRoundedRect(0, 0, 200, 50, 10);
+
+                const reportText = this.add.text(100, 25, '📊 学习报告', {
+                    fontSize: '18px',
+                    fontStyle: 'bold',
+                    fill: '#ffffff'
+                }).setOrigin(0.5);
+
+                const reportContainer = this.add.container(width - 120, height - 40);
+                reportContainer.add([reportBtn, reportText]);
+
+                reportContainer.setSize(200, 50);
+                reportContainer.setInteractive({ useHandCursor: true });
+                reportContainer.on('pointerdown', () => {
+                    this.showReport();
+                });
+            }
+
+            launchGame(game) {
+                // 跳转到游戏页面
+                window.location.href = game.path;
+            }
+
+            showReport() {
+                alert('学习报告功能开发中...\n将包含：\n- 学习进度统计\n- 游戏成绩分析\n- AI学习建议');
+            }
+        }
+
+        // Phaser配置
+        const config = {
+            type: Phaser.AUTO,
+            width: 1024,
+            height: 768,
+            parent: 'game-container',
+            backgroundColor: '#87CEEB',
+            scene: VillageScene
+        };
+
+        // 启动游戏
+        const game = new Phaser.Game(config);
+
+        // 暴露到全局
+        window.OS_VILLAGE = {
+            GAMES,
+            api
+        };
+    </script>
+</body>
+</html>

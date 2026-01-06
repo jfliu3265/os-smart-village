@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资源争端调解 - 死锁处理学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        .game-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .game-area {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .side-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .strategy-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 2px solid #e74c3c;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .strategy-btn:hover {
+            background: #e74c3c;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .strategy-btn.active {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #e74c3c;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .process-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .process-item {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 150px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .process-item:hover {
+            transform: scale(1.05);
+        }
+
+        .process-item.deadlocked {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .resource-pool {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .resource-item {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .uncle-dialog::before {
+            content: '👴 字节叔';
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .request-arrow {
+            font-size: 24px;
+            margin: 0 10px;
+        }
+
+        .deadlock-indicator {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .resource-allocation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .resource-allocation-table th,
+        .resource-allocation-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .resource-allocation-table th {
+            background: #3498db;
+            color: white;
+        }
+
+        .held {
+            background: #27ae60;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 2px;
+        }
+
+        .waiting {
+            background: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: inline-block;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 返回按钮 -->
+    <button class="back-btn btn btn-primary" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-container">
+        <!-- 游戏主区域 -->
+        <div class="game-area">
+            <h1 style="text-align: center; margin-bottom: 20px;">
+                ⚖️ 资源争端调解 - 死锁处理学习
+            </h1>
+
+            <!-- 死锁检测指示器 -->
+            <div id="deadlockIndicator" style="display: none;" class="deadlock-indicator">
+                ⚠️ 检测到死锁！进程互相等待资源，形成循环等待！
+            </div>
+
+            <!-- 资源池 -->
+            <h3 style="margin-top: 20px;">📦 资源池</h3>
+            <div class="resource-pool" id="resourcePool">
+                <!-- 资源将在这里动态生成 -->
+            </div>
+
+            <!-- 进程状态 -->
+            <h3 style="margin-top: 20px;">👥 村民（进程）状态</h3>
+            <div class="process-container" id="processContainer">
+                <!-- 进程将在这里动态生成 -->
+            </div>
+
+            <!-- 资源分配表 -->
+            <h3 style="margin-top: 20px;">📊 资源分配表</h3>
+            <table class="resource-allocation-table">
+                <thead>
+                    <tr>
+                        <th>进程</th>
+                        <th>已持有资源</th>
+                        <th>等待资源</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody id="allocationTable">
+                    <!-- 表格内容将动态生成 -->
+                </tbody>
+            </table>
+
+            <!-- 控制按钮 -->
+            <div class="control-buttons">
+                <button class="btn btn-primary" onclick="game.startSimulation()">▶ 开始模拟</button>
+                <button class="btn btn-warning" onclick="game.resetSimulation()">↻ 重置</button>
+                <button class="btn btn-success" onclick="game.detectDeadlock()">🔍 检测死锁</button>
+                <button class="btn btn-danger" onclick="game.resolveDeadlock()">💥 解除死锁</button>
+            </div>
+
+            <!-- 字节叔对话框 -->
+            <div class="uncle-dialog" id="uncleDialog">
+                欢迎来到资源争端调解中心！我是字节叔。
+                在这里，你将学习死锁的产生原因和解决方法。
+                死锁就像村民们互相等待对方的资源，谁都无法继续工作。
+            </div>
+        </div>
+
+        <!-- 侧边面板 -->
+        <div class="side-panel">
+            <!-- 死锁处理策略 -->
+            <div class="panel-card">
+                <div class="panel-title">🛠️ 死锁处理策略</div>
+                <button class="strategy-btn active" onclick="game.setStrategy('prevention')">
+                    死锁预防
+                </button>
+                <button class="strategy-btn" onclick="game.setStrategy('avoidance')">
+                    死锁避免
+                </button>
+                <button class="strategy-btn" onclick="game.setStrategy('detection')">
+                    死锁检测
+                </button>
+                <button class="strategy-btn" onclick="game.setStrategy('recovery')">
+                    死锁恢复
+                </button>
+            </div>
+
+            <!-- 死锁条件 -->
+            <div class="panel-card">
+                <div class="panel-title">⚠️ 死锁四个必要条件</div>
+                <div class="info-box">
+                    <strong>1. 互斥条件</strong><br>
+                    资源不能共享，一次只能被一个进程使用
+                </div>
+                <div class="info-box">
+                    <strong>2. 持有并等待</strong><br>
+                    进程持有至少一个资源，同时等待获取其他资源
+                </div>
+                <div class="info-box">
+                    <strong>3. 不可抢占</strong><br>
+                    资源不能被强制从持有者那里抢占
+                </div>
+                <div class="info-box">
+                    <strong>4. 循环等待</strong><br>
+                    存在进程的循环等待链 P0→P1→P2→...→P0
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="panel-card">
+                <div class="panel-title">📊 统计信息</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">进程总数</div>
+                        <div class="stat-value" id="totalProcesses">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">资源总数</div>
+                        <div class="stat-value" id="totalResources">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">等待进程</div>
+                        <div class="stat-value" id="waitingProcesses">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">死锁状态</div>
+                        <div class="stat-value" id="deadlockStatus">无</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 策略说明 -->
+            <div class="panel-card">
+                <div class="panel-title">📖 策略说明</div>
+                <div class="info-box" id="strategyInfo">
+                    <strong>死锁预防</strong><br>
+                    通过破坏死锁四个必要条件中的至少一个来预防死锁的发生。
+                    常用方法：资源一次性分配、允许资源抢占、有序资源分配。
+                </div>
+            </div>
+
+            <!-- 银行家算法演示 -->
+            <div class="panel-card">
+                <div class="panel-title">🏦 银行家算法</div>
+                <button class="btn btn-primary" onclick="game.showBankerAlgorithm()">
+                    查看算法演示
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API 客户端 -->
+    <script src="../../common/api-client.js"></script>
+
+    <script>
+        // 死锁处理游戏主类
+        class DeadlockGame {
+            constructor() {
+                this.strategy = 'prevention';
+                this.processes = [];
+                this.resources = [];
+                this.isRunning = false;
+                this.isDeadlocked = false;
+
+                // 默认数据
+                this.defaultProcesses = [
+                    {
+                        id: 'P1',
+                        name: '村民A',
+                        held: [],
+                        waiting: 'R2',
+                        status: 'waiting',
+                        color: '#e74c3c'
+                    },
+                    {
+                        id: 'P2',
+                        name: '村民B',
+                        held: ['R2'],
+                        waiting: 'R3',
+                        status: 'waiting',
+                        color: '#3498db'
+                    },
+                    {
+                        id: 'P3',
+                        name: '村民C',
+                        held: ['R3'],
+                        waiting: 'R1',
+                        status: 'waiting',
+                        color: '#2ecc71'
+                    },
+                    {
+                        id: 'P4',
+                        name: '村民D',
+                        held: ['R1'],
+                        waiting: 'R2',
+                        status: 'waiting',
+                        color: '#f39c12'
+                    }
+                ];
+
+                this.defaultResources = [
+                    { id: 'R1', name: '水井', holder: 'P4' },
+                    { id: 'R2', name: '农具', holder: 'P2' },
+                    { id: 'R3', name: '仓库', holder: 'P3' }
+                ];
+            }
+
+            init() {
+                this.processes = JSON.parse(JSON.stringify(this.defaultProcesses));
+                this.resources = JSON.parse(JSON.stringify(this.defaultResources));
+                this.isDeadlocked = false;
+                this.updateDisplay();
+                this.updateStrategyInfo();
+                document.getElementById('deadlockIndicator').style.display = 'none';
+            }
+
+            setStrategy(strategy) {
+                this.strategy = strategy;
+                document.querySelectorAll('.strategy-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+                this.updateStrategyInfo();
+                this.resetSimulation();
+            }
+
+            updateStrategyInfo() {
+                const info = {
+                    'prevention': '<strong>死锁预防</strong><br>通过破坏死锁四个必要条件中的至少一个来预防死锁。常用方法：资源一次性分配、允许资源抢占、有序资源分配。',
+                    'avoidance': '<strong>死锁避免</strong><br>在进程运行时动态检查资源分配，确保系统始终处于安全状态。银行家算法是典型的死锁避免算法。',
+                    'detection': '<strong>死锁检测</strong><br>允许系统进入死锁状态，然后定期检测是否发生死锁。如果检测到死锁，则采取措施解除。',
+                    'recovery': '<strong>死锁恢复</strong><br>当检测到死锁后，采取措施解除死锁。方法包括：抢占资源、终止进程、回滚操作等。'
+                };
+                document.getElementById('strategyInfo').innerHTML = info[this.strategy];
+            }
+
+            updateDisplay() {
+                // 更新资源池
+                const resourcePool = document.getElementById('resourcePool');
+                resourcePool.innerHTML = '';
+                this.resources.forEach(r => {
+                    const div = document.createElement('div');
+                    div.className = 'resource-item';
+                    div.innerHTML = `<strong>${r.name}</strong> (${r.id})<br>持有者: ${r.holder || '空闲'}`;
+                    resourcePool.appendChild(div);
+                });
+
+                // 更新进程容器
+                const processContainer = document.getElementById('processContainer');
+                processContainer.innerHTML = '';
+                this.processes.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'process-item' + (p.status === 'deadlocked' ? ' deadlocked' : '');
+                    div.innerHTML = `
+                        <div><strong>${p.name}</strong> (${p.id})</div>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            持有: ${p.held.length > 0 ? p.held.join(', ') : '无'}<br>
+                            等待: ${p.waiting || '无'}
+                        </div>
+                    `;
+                    processContainer.appendChild(div);
+                });
+
+                // 更新资源分配表
+                const table = document.getElementById('allocationTable');
+                table.innerHTML = '';
+                this.processes.forEach(p => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${p.name}</strong></td>
+                        <td>${p.held.map(r => `<span class="held">${r}</span>`).join('') || '-'}</td>
+                        <td>${p.waiting ? `<span class="waiting">${p.waiting}</span>` : '-'}</td>
+                        <td>${p.status === 'deadlocked' ? '⛔ 死锁' : p.status === 'running' ? '✅ 运行' : '⏳ 等待'}</td>
+                    `;
+                    table.appendChild(row);
+                });
+
+                // 更新统计
+                document.getElementById('totalProcesses').textContent = this.processes.length;
+                document.getElementById('totalResources').textContent = this.resources.length;
+                document.getElementById('waitingProcesses').textContent =
+                    this.processes.filter(p => p.status === 'waiting').length;
+                document.getElementById('deadlockStatus').textContent = this.isDeadlocked ? '⛔ 死锁' : '✅ 正常';
+                document.getElementById('deadlockStatus').style.color = this.isDeadlocked ? '#e74c3c' : '#27ae60';
+            }
+
+            startSimulation() {
+                if (this.isRunning) return;
+                this.isRunning = true;
+
+                // 模拟进程请求资源
+                this.processes.forEach((p, index) => {
+                    setTimeout(() => {
+                        this.showProcessAction(p);
+                    }, index * 1000);
+                });
+
+                setTimeout(() => {
+                    this.isRunning = false;
+                    this.detectDeadlock();
+                }, this.processes.length * 1000);
+            }
+
+            showProcessAction(process) {
+                const dialog = document.getElementById('uncleDialog');
+                dialog.innerHTML = `👴 字节叔<br>${process.name} 正在等待资源 ${process.waiting}...<br>当前持有: ${process.held.length > 0 ? process.held.join(', ') : '无'}`;
+            }
+
+            detectDeadlock() {
+                // 检测循环等待
+                const visited = new Set();
+                const recStack = new Set();
+                let hasCycle = false;
+
+                const dfs = (processId) => {
+                    if (recStack.has(processId)) {
+                        return true;
+                    }
+                    if (visited.has(processId)) {
+                        return false;
+                    }
+
+                    visited.add(processId);
+                    recStack.add(processId);
+
+                    const process = this.processes.find(p => p.id === processId);
+                    if (process && process.waiting) {
+                        // 找到持有等待资源的进程
+                        const nextProcess = this.processes.find(p => p.held.includes(process.waiting));
+                        if (nextProcess && dfs(nextProcess.id)) {
+                            return true;
+                        }
+                    }
+
+                    recStack.delete(processId);
+                    return false;
+                };
+
+                for (const p of this.processes) {
+                    if (dfs(p.id)) {
+                        hasCycle = true;
+                        break;
+                    }
+                }
+
+                this.isDeadlocked = hasCycle;
+
+                if (hasCycle) {
+                    document.getElementById('deadlockIndicator').style.display = 'block';
+                    this.processes.forEach(p => {
+                        if (p.waiting) p.status = 'deadlocked';
+                    });
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>⚠️ 检测到死锁！<br>进程之间形成了循环等待链：P1→P2→P3→P4→P1<br>需要采取措施解除死锁！';
+                } else {
+                    document.getElementById('deadlockIndicator').style.display = 'none';
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>✅ 系统运行正常！<br>没有检测到死锁。';
+                }
+
+                this.updateDisplay();
+            }
+
+            resolveDeadlock() {
+                if (!this.isDeadlocked) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>当前没有死锁，不需要解除！';
+                    return;
+                }
+
+                // 简单的死锁恢复：释放第一个等待进程的资源
+                const process = this.processes.find(p => p.status === 'deadlocked');
+                if (process && process.held.length > 0) {
+                    const releasedResource = process.held.shift();
+                    const resource = this.resources.find(r => r.id === releasedResource);
+                    if (resource) {
+                        resource.holder = null;
+                    }
+
+                    // 检查是否有进程在等待这个资源
+                    const waitingProcess = this.processes.find(p => p.waiting === releasedResource);
+                    if (waitingProcess) {
+                        waitingProcess.held.push(releasedResource);
+                        waitingProcess.waiting = null;
+                        waitingProcess.status = 'running';
+                        const res = this.resources.find(r => r.id === releasedResource);
+                        if (res) res.holder = waitingProcess.id;
+                    }
+
+                    process.status = 'running';
+                }
+
+                // 重新检测死锁
+                this.detectDeadlock();
+
+                if (!this.isDeadlocked) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>✅ 死锁已解除！<br>通过资源抢占，成功打破了循环等待链。';
+                }
+            }
+
+            resetSimulation() {
+                this.isRunning = false;
+                this.init();
+            }
+
+            showBankerAlgorithm() {
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>🏦 银行家算法简介<br><br>' +
+                    '银行家算法是一种死锁避免算法，其思想是：<br>' +
+                    '1. 进程申请资源时，先判断分配后系统是否安全<br>' +
+                    '2. 如果安全，则分配；否则推迟分配<br>' +
+                    '3. 安全状态指存在一个安全序列，使所有进程都能完成<br><br>' +
+                    '模拟器中的简化版本：确保分配后至少有一个进程能获得所有所需资源并完成。';
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'deadlock',
+                            strategy: this.strategy,
+                            stage: 'learning'
+                        }
+                    );
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + hint.hint;
+                } catch (error) {
+                    this.getOfflineHint();
+                }
+            }
+
+            getOfflineHint() {
+                const hints = {
+                    'prevention': '破坏四个条件之一！比如让进程一次性申请所有资源，或者允许资源抢占。',
+                    'avoidance': '使用银行家算法！分配前先检查系统是否处于安全状态。',
+                    'detection': '使用资源分配图！如果图中存在环路，就可能发生死锁。',
+                    'recovery': '可以抢占资源或终止进程！选择代价最小的方法。'
+                };
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>' + hints[this.strategy];
+            }
+        }
+
+        // 初始化游戏
+        const game = new DeadlockGame();
+        game.init();
+    </script>
+</body>
+</html>

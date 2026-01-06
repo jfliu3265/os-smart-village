@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物资运输队 - I/O管理学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        .game-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .game-area {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .side-panel {
+            width: 350px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .tech-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 2px solid #9b59b6;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .tech-btn:hover {
+            background: #9b59b6;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .tech-btn.active {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #9b59b6;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .io-diagram {
+            background: #ecf0f1;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            min-height: 300px;
+        }
+
+        .component {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            position: absolute;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .component:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .cpu {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+        }
+
+        .memory {
+            top: 120px;
+            left: 10%;
+            width: 120px;
+        }
+
+        .io-controller {
+            top: 120px;
+            right: 10%;
+            width: 120px;
+        }
+
+        .device {
+            top: 250px;
+            right: 10%;
+            width: 120px;
+        }
+
+        .buffer {
+            top: 250px;
+            left: 10%;
+            width: 120px;
+        }
+
+        .data-flow {
+            position: absolute;
+            height: 3px;
+            background: #3498db;
+            transform-origin: left center;
+            animation: flow 1s infinite;
+        }
+
+        @keyframes flow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .uncle-dialog::before {
+            content: '👴 字节叔';
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .interrupt-indicator {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            display: none;
+            animation: flash 0.5s infinite;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .buffer-visual {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .buffer-slot {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .buffer-slot.filled {
+            background: #27ae60;
+            color: white;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .comparison-table th {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .queue-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .queue-item {
+            background: #3498db;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 返回按钮 -->
+    <button class="back-btn btn btn-primary" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-container">
+        <!-- 游戏主区域 -->
+        <div class="game-area">
+            <h1 style="text-align: center; margin-bottom: 20px;">
+                🚚 物资运输队 - I/O管理学习
+            </h1>
+
+            <!-- 中断指示器 -->
+            <div id="interruptIndicator" class="interrupt-indicator">
+                📡 I/O中断请求！CPU正在处理...
+            </div>
+
+            <!-- I/O系统图 -->
+            <div class="io-diagram">
+                <div class="component cpu">
+                    <strong>CPU</strong><br>
+                    <span id="cpuStatus">空闲</span>
+                </div>
+                <div class="component memory">
+                    <strong>内存</strong><br>
+                    <span id="memoryStatus">无数据</span>
+                </div>
+                <div class="component io-controller">
+                    <strong>I/O控制器</strong><br>
+                    <span id="ioStatus">空闲</span>
+                </div>
+                <div class="component device">
+                    <strong>I/O设备</strong><br>
+                    <span id="deviceStatus">空闲</span>
+                </div>
+                <div class="component buffer">
+                    <strong>缓冲区</strong><br>
+                    <div id="bufferVisual" class="buffer-visual">
+                        <div class="buffer-slot"></div>
+                        <div class="buffer-slot"></div>
+                        <div class="buffer-slot"></div>
+                        <div class="buffer-slot"></div>
+                    </div>
+                </div>
+
+                <!-- 数据流箭头 -->
+                <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#3498db" />
+                        </marker>
+                    </defs>
+                    <line x1="50%" y1="80" x2="50%" y2="110" stroke="#3498db" stroke-width="2" marker-end="url(#arrowhead)" />
+                    <line x1="20%" y1="180" x2="20%" y2="240" stroke="#3498db" stroke-width="2" marker-end="url(#arrowhead)" />
+                    <line x1="80%" y1="180" x2="80%" y2="240" stroke="#3498db" stroke-width="2" marker-end="url(#arrowhead)" />
+                </svg>
+            </div>
+
+            <!-- I/O请求队列 -->
+            <h3>📋 I/O请求队列</h3>
+            <div id="ioQueue" class="queue-visual">
+                <!-- 队列项将动态生成 -->
+            </div>
+
+            <!-- 控制按钮 -->
+            <div class="control-buttons">
+                <button class="btn btn-primary" onclick="game.startIO()">▶ 发起I/O请求</button>
+                <button class="btn btn-success" onclick="game.enableInterrupt()">🔔 启用中断</button>
+                <button class="btn btn-warning" onclick="game.useDMA()">🚀 使用DMA</button>
+                <button class="btn btn-primary" onclick="game.resetSimulation()">↻ 重置</button>
+            </div>
+
+            <!-- 字节叔对话框 -->
+            <div class="uncle-dialog" id="uncleDialog">
+                欢迎来到物资运输队！我是字节叔。
+                在这里，你将学习I/O系统的工作原理，包括中断、缓冲、DMA等技术。
+                这些技术让CPU和I/O设备能够高效协作！
+            </div>
+        </div>
+
+        <!-- 侧边面板 -->
+        <div class="side-panel">
+            <!-- I/O技术选择 -->
+            <div class="panel-card">
+                <div class="panel-title">⚙️ I/O技术</div>
+                <button class="tech-btn active" onclick="game.setTechnique('polling')">
+                    轮询方式
+                </button>
+                <button class="tech-btn" onclick="game.setTechnique('interrupt')">
+                    中断方式
+                </button>
+                <button class="tech-btn" onclick="game.setTechnique('dma')">
+                    DMA方式
+                </button>
+                <button class="tech-btn" onclick="game.setTechnique('channel')">
+                    通道方式
+                </button>
+            </div>
+
+            <!-- 技术对比 -->
+            <div class="panel-card">
+                <div class="panel-title">📊 I/O方式对比</div>
+                <table class="comparison-table">
+                    <tr>
+                        <th>方式</th>
+                        <th>CPU效率</th>
+                    </tr>
+                    <tr>
+                        <td>轮询</td>
+                        <td>⭐</td>
+                    </tr>
+                    <tr>
+                        <td>中断</td>
+                        <td>⭐⭐⭐</td>
+                    </tr>
+                    <tr>
+                        <td>DMA</td>
+                        <td>⭐⭐⭐⭐</td>
+                    </tr>
+                    <tr>
+                        <td>通道</td>
+                        <td>⭐⭐⭐⭐⭐</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="panel-card">
+                <div class="panel-title">📊 统计信息</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">I/O请求数</div>
+                        <div class="stat-value" id="totalRequests">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">已完成</div>
+                        <div class="stat-value" id="completedRequests">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">CPU利用率</div>
+                        <div class="stat-value" id="cpuUtilization">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">中断次数</div>
+                        <div class="stat-value" id="interruptCount">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技术说明 -->
+            <div class="panel-card">
+                <div class="panel-title">📖 技术说明</div>
+                <div class="info-box" id="techniqueInfo">
+                    <strong>轮询方式</strong><br>
+                    CPU定期检查I/O设备状态，就像不断查看信箱是否有邮件。
+                    优点是简单，缺点是浪费CPU时间。
+                </div>
+            </div>
+
+            <!-- Spooling技术 -->
+            <div class="panel-card">
+                <div class="panel-title">🖨️ Spooling技术</div>
+                <button class="btn btn-primary" onclick="game.showSpooling()">
+                    了解Spooling
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API 客户端 -->
+    <script src="../../common/api-client.js"></script>
+
+    <script>
+        // I/O管理游戏主类
+        class IOManagementGame {
+            constructor() {
+                this.technique = 'polling';
+                this.ioQueue = [];
+                this.completedCount = 0;
+                this.totalRequests = 0;
+                this.interruptCount = 0;
+                this.interruptEnabled = false;
+                this.dmaEnabled = false;
+                this.isProcessing = false;
+
+                // 缓冲区数据
+                this.buffer = [null, null, null, null];
+            }
+
+            init() {
+                this.ioQueue = [];
+                this.completedCount = 0;
+                this.totalRequests = 0;
+                this.interruptCount = 0;
+                this.interruptEnabled = false;
+                this.dmaEnabled = false;
+                this.isProcessing = false;
+                this.buffer = [null, null, null, null];
+
+                this.updateDisplay();
+                this.updateTechniqueInfo();
+            }
+
+            setTechnique(tech) {
+                this.technique = tech;
+                document.querySelectorAll('.tech-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+                this.resetSimulation();
+                this.updateTechniqueInfo();
+            }
+
+            updateTechniqueInfo() {
+                const info = {
+                    'polling': '<strong>轮询方式</strong><br>CPU定期检查I/O设备状态，就像不断查看信箱是否有邮件。优点是简单，缺点是浪费CPU时间。',
+                    'interrupt': '<strong>中断方式</strong><br>I/O设备完成操作后向CPU发送中断信号，CPU暂停当前程序处理中断。效率高，是现代OS的主要方式。',
+                    'dma': '<strong>DMA方式</strong><br>直接内存访问，DMA控制器控制数据在内存和I/O设备间传输，无需CPU干预。适用于大批量数据传输。',
+                    'channel': '<strong>通道方式</strong><br>通道是独立的处理器，可以执行I/O程序。CPU只需发出I/O指令，通道完成所有I/O操作。效率最高。'
+                };
+                document.getElementById('techniqueInfo').innerHTML = info[this.technique];
+            }
+
+            updateDisplay() {
+                // 更新I/O队列
+                const queueDiv = document.getElementById('ioQueue');
+                queueDiv.innerHTML = '';
+
+                if (this.ioQueue.length === 0) {
+                    queueDiv.innerHTML = '<div style="text-align: center; color: #7f8c8d; padding: 10px;">队列为空</div>';
+                } else {
+                    this.ioQueue.forEach((req, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'queue-item';
+                        item.innerHTML = `
+                            <span>${index + 1}. ${req.type} - ${req.data}</span>
+                            <span>${req.status}</span>
+                        `;
+                        queueDiv.appendChild(item);
+                    });
+                }
+
+                // 更新缓冲区
+                const bufferVisual = document.getElementById('bufferVisual');
+                bufferVisual.innerHTML = '';
+                this.buffer.forEach((data, index) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'buffer-slot' + (data ? ' filled' : '');
+                    slot.textContent = data || '';
+                    bufferVisual.appendChild(slot);
+                });
+
+                // 更新状态
+                document.getElementById('cpuStatus').textContent = this.isProcessing ? '处理中' : '空闲';
+                document.getElementById('memoryStatus').textContent = this.buffer.filter(b => b).length + '/4';
+                document.getElementById('ioStatus').textContent = this.ioQueue.length > 0 ? '忙碌' : '空闲';
+                document.getElementById('deviceStatus').textContent = this.isProcessing ? '传输中' : '空闲';
+
+                // 更新统计
+                document.getElementById('totalRequests').textContent = this.totalRequests;
+                document.getElementById('completedRequests').textContent = this.completedCount;
+                const cpuUtil = this.technique === 'polling' ? 20 :
+                                this.technique === 'interrupt' ? 80 :
+                                this.technique === 'dma' ? 95 : 99;
+                document.getElementById('cpuUtilization').textContent = cpuUtil + '%';
+                document.getElementById('interruptCount').textContent = this.interruptCount;
+            }
+
+            startIO() {
+                if (this.isProcessing && this.technique === 'polling') {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>当前正在处理I/O请求，请等待完成或使用中断/DMA方式！';
+                    return;
+                }
+
+                const requestData = ['数据块1', '数据块2', '数据块3', '数据块4'][Math.floor(Math.random() * 4)];
+                const request = {
+                    id: Date.now(),
+                    type: '读操作',
+                    data: requestData,
+                    status: '等待中'
+                };
+
+                this.ioQueue.push(request);
+                this.totalRequests++;
+
+                document.getElementById('uncleDialog').innerHTML =
+                    `👴 字节叔<br>新的I/O请求已加入队列：${request.data}<br>当前技术：${this.getTechniqueName()}`;
+
+                this.processIO();
+            }
+
+            processIO() {
+                if (this.isProcessing || this.ioQueue.length === 0) return;
+
+                const request = this.ioQueue[0];
+                request.status = '处理中';
+                this.isProcessing = true;
+
+                switch (this.technique) {
+                    case 'polling':
+                        this.processPolling(request);
+                        break;
+                    case 'interrupt':
+                        this.processInterrupt(request);
+                        break;
+                    case 'dma':
+                        this.processDMA(request);
+                        break;
+                    case 'channel':
+                        this.processChannel(request);
+                        break;
+                }
+
+                this.updateDisplay();
+            }
+
+            processPolling(request) {
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>使用轮询方式：CPU必须不断检查I/O设备状态...<br>CPU被占用，效率较低！';
+
+                setTimeout(() => {
+                    this.completeIO(request);
+                }, 2000);
+            }
+
+            processInterrupt(request) {
+                if (!this.interruptEnabled) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>中断方式需要先启用中断功能！<br>请点击"启用中断"按钮。';
+                    request.status = '等待中断';
+                    this.isProcessing = false;
+                    this.updateDisplay();
+                    return;
+                }
+
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>使用中断方式：CPU可以执行其他任务，<br>I/O完成时会发送中断信号！';
+
+                document.getElementById('interruptIndicator').style.display = 'block';
+
+                setTimeout(() => {
+                    document.getElementById('interruptIndicator').style.display = 'none';
+                    this.interruptCount++;
+                    this.completeIO(request);
+                }, 1000);
+            }
+
+            processDMA(request) {
+                if (!this.dmaEnabled) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>DMA方式需要先启用DMA！<br>请点击"使用DMA"按钮。';
+                    request.status = '等待DMA';
+                    this.isProcessing = false;
+                    this.updateDisplay();
+                    return;
+                }
+
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>使用DMA方式：DMA控制器直接传输数据，<br>CPU几乎不需要干预！';
+
+                setTimeout(() => {
+                    this.interruptCount++; // DMA完成时的中断
+                    this.completeIO(request);
+                }, 500);
+            }
+
+            processChannel(request) {
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>使用通道方式：I/O通道独立完成所有操作，<br>CPU效率最高！';
+
+                setTimeout(() => {
+                    this.completeIO(request);
+                }, 300);
+            }
+
+            completeIO(request) {
+                // 将数据放入缓冲区
+                const emptySlot = this.buffer.findIndex(b => b === null);
+                if (emptySlot !== -1) {
+                    this.buffer[emptySlot] = request.data;
+                }
+
+                // 从队列中移除
+                this.ioQueue.shift();
+                this.completedCount++;
+                this.isProcessing = false;
+
+                document.getElementById('uncleDialog').innerHTML =
+                    `👴 字节叔<br>✅ I/O操作完成！${request.data} 已传输到缓冲区。`;
+
+                this.updateDisplay();
+
+                // 继续处理队列中的下一个请求
+                if (this.ioQueue.length > 0) {
+                    setTimeout(() => this.processIO(), 500);
+                }
+            }
+
+            enableInterrupt() {
+                this.interruptEnabled = !this.interruptEnabled;
+                const btn = event.target;
+                if (this.interruptEnabled) {
+                    btn.textContent = '🔔 禁用中断';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                } else {
+                    btn.textContent = '🔔 启用中断';
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-success');
+                }
+
+                document.getElementById('uncleDialog').innerHTML =
+                    `👴 字节叔<br>中断已${this.interruptEnabled ? '启用' : '禁用'}！<br>
+                    ${this.interruptEnabled ? '现在I/O设备完成操作后会主动通知CPU。' : 'CPU将使用轮询方式检查I/O状态。'}`;
+            }
+
+            useDMA() {
+                this.dmaEnabled = !this.dmaEnabled;
+                const btn = event.target;
+                if (this.dmaEnabled) {
+                    btn.textContent = '🚀 禁用DMA';
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-success');
+                } else {
+                    btn.textContent = '🚀 使用DMA';
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                }
+
+                document.getElementById('uncleDialog').innerHTML =
+                    `👴 字节叔<br>DMA已${this.dmaEnabled ? '启用' : '禁用'}！<br>
+                    ${this.dmaEnabled ? '数据传输不再占用CPU时间。' : '恢复到中断方式。'}`;
+            }
+
+            resetSimulation() {
+                this.init();
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>模拟已重置！选择一种I/O技术开始学习吧。';
+            }
+
+            getTechniqueName() {
+                const names = {
+                    'polling': '轮询',
+                    'interrupt': '中断',
+                    'dma': 'DMA',
+                    'channel': '通道'
+                };
+                return names[this.technique];
+            }
+
+            showSpooling() {
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>🖨️ Spooling技术简介<br><br>' +
+                    '<strong>S</strong>imultaneous <strong>P</strong>eripheral <strong>O</strong>perations <strong>O</strong>nline<br><br>' +
+                    'Spooling（假脱机）技术：<br>' +
+                    '1. 将独占设备改造成共享设备<br>' +
+                    '2. 输入/输出数据先存入磁盘<br>' +
+                    '3. 提高设备利用率，减少等待时间<br><br>' +
+                    '<strong>典型应用：</strong>打印系统<br>' +
+                    '多用户可同时"打印"，系统将打印任务排入队列，依次处理。';
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'io-management',
+                            technique: this.technique,
+                            stage: 'learning'
+                        }
+                    );
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + hint.hint;
+                } catch (error) {
+                    this.getOfflineHint();
+                }
+            }
+
+            getOfflineHint() {
+                const hints = {
+                    'polling': '轮询就像不断查看信箱，浪费CPU时间。应该升级到中断方式！',
+                    'interrupt': '中断方式效率高！I/O完成时会通知CPU，CPU可以做其他事情。',
+                    'dma': 'DMA方式适合大量数据传输！数据直接在内存和设备间传输。',
+                    'channel': '通道是最先进的！它像一个独立的处理器，完全接管I/O操作。'
+                };
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>' + hints[this.technique];
+            }
+        }
+
+        // 初始化游戏
+        const game = new IOManagementGame();
+        game.init();
+    </script>
+</body>
+</html>

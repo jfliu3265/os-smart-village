@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>村民协作 - 进程同步学习</title>
+    <link rel="stylesheet" href="../../styles/main.css">
+    <style>
+        .game-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .game-area {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .side-panel {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .sync-mechanism-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 2px solid #9b59b6;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .sync-mechanism-btn:hover {
+            background: #9b59b6;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sync-mechanism-btn.active {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .village-scene {
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F7FA 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            min-height: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .resource-area {
+            background: #f5f5f5;
+            border: 3px dashed #95a5a6;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px;
+            text-align: center;
+            position: relative;
+        }
+
+        .resource-area.shared-well {
+            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
+            border-color: #27ae60;
+        }
+
+        .resource-area.bridge {
+            background: linear-gradient(135deg, #ffd3a5 0%, #fd9853 100%);
+            border-color: #e67e22;
+        }
+
+        .resource-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .villager {
+            display: inline-block;
+            width: 80px;
+            text-align: center;
+            margin: 5px;
+            padding: 8px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            position: absolute;
+        }
+
+        .villager.moving {
+            animation: move 2s ease-in-out;
+        }
+
+        .villager.waiting {
+            opacity: 0.6;
+            background: #fff3cd;
+        }
+
+        .villager.working {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+
+        @keyframes move {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(50px); }
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-primary {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .uncle-dialog {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .uncle-dialog::before {
+            content: '👴 字节叔';
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        .problem-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .problem-item {
+            background: #f8f9fa;
+            border-left: 4px solid #dc3545;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .solution-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .solution-item {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .visual-representation {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .critical-region {
+            border: 3px solid #e74c3c;
+            border-radius: 10px;
+            padding: 15px;
+            background: #ffe5e5;
+            text-align: center;
+            min-width: 150px;
+        }
+
+        .semaphore {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            line-height: 40px;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+
+        .semaphore.lock {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .semaphore.unlock {
+            background: #27ae60;
+            color: white;
+        }
+
+        .log-area {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid #34495e;
+        }
+
+        .log-entry.error {
+            color: #e74c3c;
+        }
+
+        .log-entry.success {
+            color: #2ecc71;
+        }
+
+        .log-entry.info {
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-btn btn btn-primary" onclick="window.location.href='../../index.html'">
+        ← 返回村庄
+    </button>
+
+    <div class="game-container">
+        <div class="game-area">
+            <h1 style="text-align: center; margin-bottom: 20px;">
+                🤝 村民协作 - 进程同步学习
+            </h1>
+
+            <div class="village-scene" id="villageScene">
+                <div style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 24px;">
+                    🌄 智慧村协作场景
+                </div>
+
+                <div class="visual-representation">
+                    <div class="villager" id="villager1" style="left: 10%; top: 50%;">
+                        👨‍🌾<br>
+                        <small>村民A</small><br>
+                        <span class="status">等待</span>
+                    </div>
+
+                    <div class="critical-region" id="criticalRegion" style="left: 40%; top: 45%;">
+                        🚰<br>
+                        <strong>公共水井</strong><br>
+                        <small>临界区</small><br>
+                        <span class="semaphore unlock" id="semaphore">🔓</span>
+                    </div>
+
+                    <div class="villager" id="villager2" style="right: 10%; top: 50%;">
+                        👩‍🌾<br>
+                        <small>村民B</small><br>
+                        <span class="status">等待</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-area" id="logArea">
+                <div class="log-entry info">系统: 欢迎来到村民协作游戏！</div>
+                <div class="log-entry info">系统: 请选择一个同步机制开始学习</div>
+            </div>
+
+            <div class="control-buttons">
+                <button class="btn btn-primary" onclick="game.startDemo()">▶ 开始演示</button>
+                <button class="btn btn-warning" onclick="game.resetDemo()">↻ 重置</button>
+                <button class="btn btn-success" onclick="game.showHint()">💡 获取提示</button>
+                <button class="btn btn-info" onclick="game.toggleRaceCondition()">⚡ 显示竞态问题</button>
+            </div>
+
+            <div class="uncle-dialog" id="uncleDialog">
+                欢迎来到村民协作！我是字节叔。
+                在这里，你将学习如何协调多个进程（村民）共同工作，
+                避免冲突和混乱。让我们从最经典的"公共水井"问题开始吧！
+            </div>
+        </div>
+
+        <div class="side-panel">
+            <div class="panel-card">
+                <div class="panel-title">🔐 选择同步机制</div>
+                <button class="sync-mechanism-btn active" onclick="game.setMechanism('mutex')">
+                    🔒 互斥锁 (Mutex)
+                </button>
+                <button class="sync-mechanism-btn" onclick="game.setMechanism('semaphore')">
+                    🚦 信号量 (Semaphore)
+                </button>
+                <button class="sync-mechanism-btn" onclick="game.setMechanism('monitor')">
+                    📊 管程 (Monitor)
+                </button>
+                <button class="sync-mechanism-btn" onclick="game.setMechanism('barrier')">
+                    🚧 屏障 (Barrier)
+                </button>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title">⚠️ 同步问题</div>
+                <ul class="problem-list">
+                    <li class="problem-item">
+                        <strong>竞态条件</strong><br>
+                        多个进程同时访问共享资源导致结果不确定
+                    </li>
+                    <li class="problem-item">
+                        <strong>死锁</strong><br>
+                        两个或多个进程互相等待对方释放资源
+                    </li>
+                    <li class="problem-item">
+                        <strong>饥饿</strong><br>
+                        某些进程长时间得不到所需资源
+                    </li>
+                </ul>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title">✅ 解决方案</div>
+                <ul class="solution-list" id="solutionList">
+                    <li class="solution-item">
+                        <strong>互斥锁</strong><br>
+                        确保同一时间只有一个进程访问临界区
+                    </li>
+                </ul>
+            </div>
+
+            <div class="panel-card">
+                <div class="panel-title">📊 统计信息</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">访问次数</div>
+                        <div class="stat-value" id="accessCount">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">冲突次数</div>
+                        <div class="stat-value" id="conflictCount">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">等待时间</div>
+                        <div class="stat-value" id="waitTime">0ms</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">成功同步</div>
+                        <div class="stat-value" id="syncSuccess">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../common/api-client.js"></script>
+    <script>
+        class ProcessSyncGame {
+            constructor() {
+                this.mechanism = 'mutex';
+                this.isRunning = false;
+                this.accessCount = 0;
+                this.conflictCount = 0;
+                this.waitTime = 0;
+                this.syncSuccess = 0;
+                this.lockHeldBy = null;
+                this.showRaceConditionDemo = false;
+            }
+
+            init() {
+                this.resetDemo();
+                this.updateSolutionInfo();
+            }
+
+            setMechanism(mechanism) {
+                this.mechanism = mechanism;
+                document.querySelectorAll('.sync-mechanism-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+                this.resetDemo();
+                this.updateSolutionInfo();
+                this.addLog('info', `切换到同步机制: ${mechanism}`);
+            }
+
+            updateSolutionInfo() {
+                const solutions = {
+                    'mutex': '<li class="solution-item"><strong>互斥锁</strong><br>确保同一时间只有一个进程访问临界区，就像水井一次只能一个人打水。</li>',
+                    'semaphore': '<li class="solution-item"><strong>信号量</strong><br>使用整型变量控制同时访问资源的进程数量，可以控制同时有几个村民使用水井。</li>',
+                    'monitor': '<li class="solution-item"><strong>管程</strong><br>高级同步原语，封装了共享数据和操作，自动处理同步，就像有个管理员协调水井使用。</li>',
+                    'barrier': '<li class="solution-item"><strong>屏障</strong><br>确保所有进程都到达某个点后才继续，就像等待所有人集合后再一起出发。</li>'
+                };
+                document.getElementById('solutionList').innerHTML = solutions[this.mechanism];
+            }
+
+            async startDemo() {
+                if (this.isRunning) return;
+                this.isRunning = true;
+                this.addLog('info', `开始演示 ${this.mechanism} 机制...`);
+
+                if (this.showRaceConditionDemo) {
+                    await this.demonstrateRaceCondition();
+                } else {
+                    await this.demonstrateSynchronization();
+                }
+
+                this.isRunning = false;
+            }
+
+            async demonstrateSynchronization() {
+                const villager1 = document.getElementById('villager1');
+                const villager2 = document.getElementById('villager2');
+                const semaphore = document.getElementById('semaphore');
+
+                // 村民A尝试获取锁
+                this.addLog('info', '村民A 请求获取锁...');
+                villager1.querySelector('.status').textContent = '请求中';
+                await this.sleep(800);
+
+                if (this.lockHeldBy === null) {
+                    this.lockHeldBy = 'A';
+                    semaphore.className = 'semaphore lock';
+                    semaphore.textContent = '🔒';
+                    villager1.querySelector('.status').textContent = '使用中';
+                    villager1.classList.add('working');
+                    this.addLog('success', '村民A 获得锁，开始使用水井');
+                    this.accessCount++;
+                    this.syncSuccess++;
+
+                    await this.sleep(2000);
+
+                    this.addLog('success', '村民A 完成打水，释放锁');
+                    this.lockHeldBy = null;
+                    semaphore.className = 'semaphore unlock';
+                    semaphore.textContent = '🔓';
+                    villager1.classList.remove('working');
+                    villager1.querySelector('.status').textContent = '完成';
+                }
+
+                await this.sleep(500);
+
+                // 村民B尝试获取锁
+                this.addLog('info', '村民B 请求获取锁...');
+                villager2.querySelector('.status').textContent = '请求中';
+                await this.sleep(800);
+
+                if (this.lockHeldBy === null) {
+                    this.lockHeldBy = 'B';
+                    semaphore.className = 'semaphore lock';
+                    semaphore.textContent = '🔒';
+                    villager2.querySelector('.status').textContent = '使用中';
+                    villager2.classList.add('working');
+                    this.addLog('success', '村民B 获得锁，开始使用水井');
+                    this.accessCount++;
+                    this.syncSuccess++;
+
+                    await this.sleep(2000);
+
+                    this.addLog('success', '村民B 完成打水，释放锁');
+                    this.lockHeldBy = null;
+                    semaphore.className = 'semaphore unlock';
+                    semaphore.textContent = '🔓';
+                    villager2.classList.remove('working');
+                    villager2.querySelector('.status').textContent = '完成';
+                }
+
+                this.updateStats();
+                this.showCompletionMessage();
+            }
+
+            async demonstrateRaceCondition() {
+                const villager1 = document.getElementById('villager1');
+                const villager2 = document.getElementById('villager2');
+                const semaphore = document.getElementById('semaphore');
+
+                this.addLog('error', '⚠️ 演示竞态条件：没有正确的同步！');
+
+                // 两个村民同时尝试访问
+                villager1.querySelector('.status').textContent = '冲向水井';
+                villager2.querySelector('.status').textContent = '冲向水井';
+                villager1.classList.add('moving');
+                villager2.classList.add('moving');
+
+                await this.sleep(1000);
+
+                villager1.classList.remove('moving');
+                villager2.classList.remove('moving');
+
+                this.addLog('error', '❌ 冲突！两个村民同时到达水井');
+                this.conflictCount++;
+
+                villager1.querySelector('.status').textContent = '冲突！';
+                villager2.querySelector('.status').textContent = '冲突！';
+                villager1.classList.add('waiting');
+                villager2.classList.add('waiting');
+
+                await this.sleep(1500);
+
+                this.addLog('error', '💥 发生数据竞争，可能导致水资源统计错误');
+                this.addLog('info', '💡 解决方案：使用互斥锁确保互斥访问');
+
+                this.updateStats();
+                this.showRaceConditionWarning();
+            }
+
+            toggleRaceCondition() {
+                this.showRaceConditionDemo = !this.showRaceConditionDemo;
+                const btn = event.target;
+                if (this.showRaceConditionDemo) {
+                    btn.textContent = '⚡ 隐藏竞态问题';
+                    btn.style.background = '#e74c3c';
+                    this.addLog('info', '已切换到竞态条件演示模式');
+                } else {
+                    btn.textContent = '⚡ 显示竞态问题';
+                    btn.style.background = '#3498db';
+                    this.addLog('info', '已切换到正常同步演示模式');
+                }
+            }
+
+            resetDemo() {
+                this.isRunning = false;
+                this.lockHeldBy = null;
+                this.accessCount = 0;
+                this.conflictCount = 0;
+                this.waitTime = 0;
+                this.syncSuccess = 0;
+
+                const villager1 = document.getElementById('villager1');
+                const villager2 = document.getElementById('villager2');
+                const semaphore = document.getElementById('semaphore');
+
+                villager1.querySelector('.status').textContent = '等待';
+                villager2.querySelector('.status').textContent = '等待';
+                villager1.classList.remove('working', 'waiting', 'moving');
+                villager2.classList.remove('working', 'waiting', 'moving');
+                semaphore.className = 'semaphore unlock';
+                semaphore.textContent = '🔓';
+
+                document.getElementById('logArea').innerHTML =
+                    '<div class="log-entry info">系统: 演示已重置</div>';
+
+                this.updateStats();
+            }
+
+            updateStats() {
+                document.getElementById('accessCount').textContent = this.accessCount;
+                document.getElementById('conflictCount').textContent = this.conflictCount;
+                document.getElementById('waitTime').textContent = this.waitTime + 'ms';
+                document.getElementById('syncSuccess').textContent = this.syncSuccess;
+            }
+
+            addLog(type, message) {
+                const logArea = document.getElementById('logArea');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = message;
+                logArea.appendChild(entry);
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+
+            async showHint() {
+                try {
+                    const hint = await OS_VILLAGE_API.getHint(
+                        'session_' + Date.now(),
+                        {
+                            game: 'process-sync',
+                            mechanism: this.mechanism,
+                            stage: 'learning'
+                        }
+                    );
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + hint.hint;
+                } catch (error) {
+                    document.getElementById('uncleDialog').innerHTML =
+                        '👴 字节叔<br>' + this.getOfflineHint();
+                }
+            }
+
+            getOfflineHint() {
+                const hints = {
+                    'mutex': '互斥锁就像水井的钥匙！一次只能有一把钥匙，村民A用完后要交出来，村民B才能使用。',
+                    'semaphore': '信号量像是一个计数器！可以设置同时允许多少个村民使用水井，比如设为2，就可以有2个村民同时使用。',
+                    'monitor': '管程就像有个自动管理员！村民只需排队，管理员会自动协调谁先谁后，不用自己处理锁。',
+                    'barrier': '屏障就像集合点！所有村民都要到达后才能一起继续，确保大家同步完成某个阶段。'
+                };
+                return hints[this.mechanism];
+            }
+
+            showCompletionMessage() {
+                const messages = [
+                    '太棒了！你已经理解了进程同步的核心概念！',
+                    '做得很好！互斥访问是防止竞态条件的关键！',
+                    '你是个同步专家！字节叔为你骄傲！'
+                ];
+                const msg = messages[Math.floor(Math.random() * messages.length)];
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>' + msg;
+            }
+
+            showRaceConditionWarning() {
+                document.getElementById('uncleDialog').innerHTML =
+                    '👴 字节叔<br>' +
+                    '这就是<strong>竞态条件</strong>的危害！没有正确的同步机制，<br>' +
+                    '多个进程同时访问共享资源会导致数据不一致。<br><br>' +
+                    '💡 解决方案：使用互斥锁、信号量等同步机制！';
+            }
+
+            sleep(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        const game = new ProcessSyncGame();
+        game.init();
+    </script>
+</body>
+</html>
